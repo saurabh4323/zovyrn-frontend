@@ -2,7 +2,7 @@
 
 An industry-standard, responsive, and robust frontend application designed to help users track and understand their financial activity. Built meticulously to fulfill all core and advanced dashboard requirements.
 
-🔗 **Live Deployment:** [Insert Deployment Link Here] 
+🔗 **Live Deployment:**  [ https://zovyrn-frontend.vercel.app ] 
 
 ---
 
@@ -81,7 +81,6 @@ This project utilizes `npm` and `Vite`.
 
 ---
 
-## 👨‍💻 Evaluation Checklist Focus
 
 - **Design & Creativity**: No generic UI libraries (like Tailwind or MUI) were used. Demonstrates deep understanding of scalable Vanilla CSS patterns and variable mapping.
 - **Responsiveness**: Resize your browser! Navigation converts smartly.
