@@ -1,36 +1,47 @@
 import React from 'react';
-import { Home, List, PieChart, Activity } from 'lucide-react';
+import { Home, List, PieChart, Activity, X } from 'lucide-react';
 
-const Sidebar = ({ activeTab, setActiveTab }) => {
-  const tabs = [
-    { id: 'dashboard', label: 'Dashboard', icon: Home },
-    { id: 'transactions', label: 'Transactions', icon: List },
-    { id: 'insights', label: 'Insights', icon: PieChart },
-  ];
+const tabs = [
+  { id: 'dashboard', label: 'Dashboard', icon: Home },
+  { id: 'transactions', label: 'Transactions', icon: List },
+  { id: 'insights', label: 'Insights', icon: PieChart },
+];
 
+const Sidebar = ({ activeTab, setActiveTab, isOpen, onClose }) => {
   return (
-    <div className="sidebar">
+    <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
+      {/* Logo */}
       <div className="sidebar-logo">
-        <Activity size={28} />
-        Zovyrn Finance
+        <Activity size={28} strokeWidth={2.5} />
+        <span>Zovyrn</span>
+        <button className="sidebar-close" onClick={onClose} aria-label="Close menu">
+          <X size={20} />
+        </button>
       </div>
+
+      {/* Nav */}
       <ul className="nav-menu">
-        {tabs.map(tab => {
-          const Icon = tab.icon;
-          return (
-            <li key={tab.id} className="nav-item">
-              <a
-                className={`nav-link ${activeTab === tab.id ? 'active' : ''}`}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                <Icon size={20} />
-                {tab.label}
-              </a>
-            </li>
-          );
-        })}
+        {tabs.map(({ id, label, icon: Icon }) => (
+          <li key={id}>
+            <div
+              className={`nav-link ${activeTab === id ? 'active' : ''}`}
+              onClick={() => setActiveTab(id)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === 'Enter' && setActiveTab(id)}
+            >
+              <Icon size={20} />
+              <span>{label}</span>
+            </div>
+          </li>
+        ))}
       </ul>
-    </div>
+
+      {/* Footer */}
+      <div className="sidebar-footer">
+        © 2026 Zovyrn Finance<br />v1.2.0
+      </div>
+    </aside>
   );
 };
 

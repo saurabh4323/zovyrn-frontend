@@ -1,162 +1,232 @@
 import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { Search, Plus, Trash2 } from 'lucide-react';
+import { Search, Plus, Trash2, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
 
-const Transactions = () => {
+export default function Transactions() {
   const { transactions, role, addTransaction, deleteTransaction } = useAppContext();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('all');
-  
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newTx, setNewTx] = useState({ date: '', amount: '', category: '', type: 'expense' });
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('all');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [form, setForm] = useState({ date: '', amount: '', category: '', type: 'expense' });
 
-  const filteredTransactions = useMemo(() => {
-    return transactions.filter(t => {
-      const matchSearch = t.category.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchType = filterType === 'all' || t.type === filterType;
-      return matchSearch && matchType;
-    }).sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [transactions, searchTerm, filterType]);
+  const filtered = useMemo(() =>
+    transactions
+      .filter(t => {
+        const matchSearch = t.category.toLowerCase().includes(search.toLowerCase());
+        const matchFilter = filter === 'all' || t.type === filter;
+        return matchSearch && matchFilter;
+      })
+      .sort((a, b) => new Date(b.date) - new Date(a.date)),
+    [transactions, search, filter]
+  );
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!newTx.date || !newTx.amount || !newTx.category) return;
-    addTransaction(newTx);
-    setIsModalOpen(false);
-    setNewTx({ date: '', amount: '', category: '', type: 'expense' });
+    if (!form.date || !form.amount || !form.category) return;
+    addTransaction({ ...form });
+    setModalOpen(false);
+    setForm({ date: '', amount: '', category: '', type: 'expense' });
   };
+
+  const formatDate = (d) =>
+    new Date(d).toLocaleDateString('en', { year: 'numeric', month: 'short', day: 'numeric' });
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h1 className="page-title" style={{ marginBottom: 0 }}>Transactions</h1>
+      {/* Page Header */}
+      <div className="page-header">
+        <h1 className="page-title">Transactions</h1>
         {role === 'admin' && (
-          <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
-            <Plus size={18} />
-            Add Transaction
+          <button className="btn-add" onClick={() => setModalOpen(true)}>
+            <Plus size={18} /> New
           </button>
         )}
       </div>
 
-      <div className="table-container">
-        <div className="table-header">
-          <div className="input-group" style={{ width: '300px' }}>
-            <Search size={18} color="var(--text-secondary)" />
-            <input 
-              type="text" 
-              placeholder="Search category..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+      {/* Table wrapper */}
+      <div className="table-wrapper">
+        {/* Toolbar */}
+        <div className="table-toolbar">
+          <div className="search-box">
+            <Search size={16} color="var(--muted)" />
+            <input
+              type="text"
+              placeholder="Search category…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
             />
           </div>
-          
-          <select 
-            className="select-box"
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
+          <select
+            className="filter-select"
+            value={filter}
+            onChange={e => setFilter(e.target.value)}
           >
-            <option value="all">All Types</option>
+            <option value="all">All</option>
             <option value="income">Income</option>
             <option value="expense">Expense</option>
           </select>
         </div>
 
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Category</th>
-              <th>Type</th>
-              <th>Amount</th>
-              {role === 'admin' && <th>Action</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {filteredTransactions.length === 0 ? (
-              <tr>
-                <td colSpan={role === 'admin' ? 5 : 4} style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>
-                  No transactions found.
-                </td>
-              </tr>
-            ) : (
-              filteredTransactions.map(t => (
-                <tr key={t.id}>
-                  <td>{new Date(t.date).toLocaleDateString()}</td>
-                  <td>{t.category}</td>
-                  <td>
-                    <span className={`badge badge-${t.type}`}>
-                      {t.type.charAt(0).toUpperCase() + t.type.slice(1)}
-                    </span>
-                  </td>
-                  <td style={{ fontWeight: 500 }}>
-                    {t.type === 'income' ? '+' : '-'}${Number(t.amount).toLocaleString()}
-                  </td>
+        {filtered.length === 0 ? (
+          <div className="empty-state">
+            <Search size={40} strokeWidth={1.2} />
+            <span>No transactions found</span>
+          </div>
+        ) : (
+          <>
+            {/* ── DESKTOP TABLE ── */}
+            <div className="desktop-table-wrap">
+              <table className="desktop-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Category</th>
+                    <th>Type</th>
+                    <th style={{ textAlign: 'right' }}>Amount</th>
+                    {role === 'admin' && <th style={{ textAlign: 'center' }}>Action</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(t => (
+                    <tr key={t.id}>
+                      <td style={{ color: 'var(--muted)', fontWeight: 500 }}>
+                        {formatDate(t.date)}
+                      </td>
+                      <td style={{ fontWeight: 600 }}>{t.category}</td>
+                      <td>
+                        <span className={`badge badge-${t.type}`}>
+                          {t.type === 'income'
+                            ? <ArrowUpCircle size={13} />
+                            : <ArrowDownCircle size={13} />}
+                          {t.type}
+                        </span>
+                      </td>
+                      <td style={{
+                        textAlign: 'right',
+                        fontWeight: 800,
+                        fontSize: '0.95rem',
+                        color: t.type === 'income' ? 'var(--success)' : 'var(--text)',
+                      }}>
+                        {t.type === 'income' ? '+' : '-'}${Number(t.amount).toLocaleString()}
+                      </td>
+                      {role === 'admin' && (
+                        <td style={{ textAlign: 'center' }}>
+                          <button className="tx-delete" onClick={() => deleteTransaction(t.id)}>
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* ── MOBILE CARDS ── */}
+            <div className="mobile-tx-list">
+              {filtered.map(t => (
+                <div key={t.id} className="tx-card">
+                  {/* Icon */}
+                  <div
+                    className="tx-icon"
+                    style={{
+                      background: t.type === 'income' ? 'var(--success-bg)' : 'var(--danger-bg)',
+                      color: t.type === 'income' ? 'var(--success)' : 'var(--danger)',
+                    }}
+                  >
+                    {t.type === 'income'
+                      ? <ArrowUpCircle size={20} />
+                      : <ArrowDownCircle size={20} />}
+                  </div>
+
+                  {/* Info */}
+                  <div className="tx-info">
+                    <div className="tx-category">{t.category}</div>
+                    <div className="tx-date">{formatDate(t.date)}</div>
+                  </div>
+
+                  {/* Amount */}
+                  <div className="tx-right">
+                    <div
+                      className="tx-amount"
+                      style={{ color: t.type === 'income' ? 'var(--success)' : 'var(--text)' }}
+                    >
+                      {t.type === 'income' ? '+' : '-'}${Number(t.amount).toLocaleString()}
+                    </div>
+                    <div
+                      className="tx-type"
+                      style={{ color: t.type === 'income' ? 'var(--success)' : 'var(--danger)' }}
+                    >
+                      {t.type}
+                    </div>
+                  </div>
+
+                  {/* Delete (admin) */}
                   {role === 'admin' && (
-                    <td>
-                      <button 
-                        className="btn btn-icon" 
-                        style={{ color: 'var(--danger-color)', border: 'none' }}
-                        onClick={() => deleteTransaction(t.id)}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </td>
+                    <button className="tx-delete" onClick={() => deleteTransaction(t.id)}>
+                      <Trash2 size={15} />
+                    </button>
                   )}
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
-      {isModalOpen && (
-        <div className="modal-overlay">
+      {/* ── MODAL ── */}
+      {modalOpen && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setModalOpen(false)}>
           <div className="modal">
-            <h2 className="modal-title">Add Transaction</h2>
+            <h2 className="modal-title">New Transaction</h2>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
                 <label>Date</label>
-                <input 
-                  type="date" 
-                  value={newTx.date}
-                  onChange={(e) => setNewTx({...newTx, date: e.target.value})}
+                <input
+                  type="date"
+                  value={form.date}
+                  onChange={e => setForm({ ...form, date: e.target.value })}
                   required
                 />
               </div>
               <div className="form-group">
                 <label>Amount ($)</label>
-                <input 
-                  type="number" 
-                  value={newTx.amount}
-                  onChange={(e) => setNewTx({...newTx, amount: e.target.value})}
-                  required
+                <input
+                  type="number"
                   min="0"
+                  placeholder="0.00"
+                  value={form.amount}
+                  onChange={e => setForm({ ...form, amount: e.target.value })}
+                  required
                 />
               </div>
               <div className="form-group">
                 <label>Category</label>
-                <input 
-                  type="text" 
-                  value={newTx.category}
-                  onChange={(e) => setNewTx({...newTx, category: e.target.value})}
+                <input
+                  type="text"
+                  placeholder="e.g. Salary, Rent…"
+                  value={form.category}
+                  onChange={e => setForm({ ...form, category: e.target.value })}
                   required
-                  placeholder="e.g. Salary, Utilities"
                 />
               </div>
               <div className="form-group">
                 <label>Type</label>
-                <select 
-                  value={newTx.type}
-                  onChange={(e) => setNewTx({...newTx, type: e.target.value})}
+                <select
+                  value={form.type}
+                  onChange={e => setForm({ ...form, type: e.target.value })}
                 >
                   <option value="expense">Expense</option>
                   <option value="income">Income</option>
                 </select>
               </div>
-              
               <div className="modal-actions">
-                <button type="button" className="btn" onClick={() => setIsModalOpen(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Save</button>
+                <button type="button" className="btn" onClick={() => setModalOpen(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  Save
+                </button>
               </div>
             </form>
           </div>
@@ -164,6 +234,4 @@ const Transactions = () => {
       )}
     </div>
   );
-};
-
-export default Transactions;
+}

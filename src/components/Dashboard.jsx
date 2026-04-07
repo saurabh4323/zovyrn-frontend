@@ -2,236 +2,250 @@ import React, { useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { DollarSign, TrendingUp, TrendingDown, ShieldCheck, Database, Users } from 'lucide-react';
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, BarChart, Bar,
-  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
+  ResponsiveContainer, LineChart, Line, BarChart, Bar,
+  PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend
 } from 'recharts';
 
-const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#dc2626', '#8b5cf6', '#0ea5e9'];
+const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#0ea5e9'];
 
-const Dashboard = () => {
+const CustomTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{
+      background: 'var(--surface)',
+      border: '1px solid var(--border)',
+      borderRadius: 10,
+      padding: '10px 14px',
+      boxShadow: 'var(--shadow-md)',
+      fontSize: '0.85rem',
+    }}>
+      {label && <p style={{ color: 'var(--muted)', marginBottom: 6, fontWeight: 600 }}>{label}</p>}
+      {payload.map((p, i) => (
+        <p key={i} style={{ color: p.color, fontWeight: 700 }}>
+          {p.name}: ${Number(p.value).toLocaleString()}
+        </p>
+      ))}
+    </div>
+  );
+};
+
+export default function Dashboard() {
   const { transactions, role } = useAppContext();
 
-  const { totalIncome, totalExpense, balance } = useMemo(() => {
-    let inc = 0;
-    let exp = 0;
+  const stats = useMemo(() => {
+    let income = 0, expense = 0;
     transactions.forEach(t => {
-      if (t.type === 'income') inc += Number(t.amount);
-      if (t.type === 'expense') exp += Number(t.amount);
+      if (t.type === 'income') income += Number(t.amount);
+      else expense += Number(t.amount);
     });
-    return {
-      totalIncome: inc,
-      totalExpense: exp,
-      balance: inc - exp
-    };
+    return { income, expense, balance: income - expense };
   }, [transactions]);
 
   const trendData = useMemo(() => {
-    // Group by date and calculate running balance
     const sorted = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
-    let currentBalance = 0;
-    const data = [];
-    
-    sorted.forEach(t => {
-      currentBalance += t.type === 'income' ? Number(t.amount) : -Number(t.amount);
-      data.push({
-        name: new Date(t.date).toLocaleDateString(),
-        balance: currentBalance
-      });
+    let bal = 0;
+    return sorted.map(t => {
+      bal += t.type === 'income' ? Number(t.amount) : -Number(t.amount);
+      return {
+        name: new Date(t.date).toLocaleDateString('en', { month: 'short', day: 'numeric' }),
+        balance: bal,
+      };
     });
-    
-    return data;
   }, [transactions]);
 
   const barData = useMemo(() => {
-    // Income vs Expense over time
-    const grouped = {};
+    const map = {};
     transactions.forEach(t => {
-      const d = new Date(t.date);
-      const monthStr = d.toLocaleString('default', { month: 'short' }) + ' ' + d.getFullYear();
-      if (!grouped[monthStr]) {
-        grouped[monthStr] = { name: monthStr, income: 0, expense: 0 };
-      }
-      if (t.type === 'income') grouped[monthStr].income += Number(t.amount);
-      else grouped[monthStr].expense += Number(t.amount);
+      const key = new Date(t.date).toLocaleString('en', { month: 'short' });
+      if (!map[key]) map[key] = { name: key, income: 0, expense: 0 };
+      map[key][t.type] += Number(t.amount);
     });
-    return Object.values(grouped);
+    return Object.values(map);
   }, [transactions]);
 
-  const categoryData = useMemo(() => {
-    const expenses = transactions.filter(t => t.type === 'expense');
-    const grouped = {};
-    expenses.forEach(t => {
-      grouped[t.category] = (grouped[t.category] || 0) + Number(t.amount);
+  const pieData = useMemo(() => {
+    const map = {};
+    transactions.filter(t => t.type === 'expense').forEach(t => {
+      map[t.category] = (map[t.category] || 0) + Number(t.amount);
     });
-    return Object.keys(grouped).map(key => ({
-      name: key,
-      value: grouped[key]
-    }));
+    return Object.entries(map).map(([name, value]) => ({ name, value }));
   }, [transactions]);
 
-  const radarData = useMemo(() => {
-    // Show distribution of total amount and frequency per category
-    const grouped = {};
-    transactions.forEach(t => {
-      if (t.type !== 'expense') return;
-      if (!grouped[t.category]) grouped[t.category] = { spent: 0, count: 0 };
-      grouped[t.category].spent += Number(t.amount);
-      grouped[t.category].count += 1;
+  const hBarData = useMemo(() => {
+    const map = {};
+    transactions.filter(t => t.type === 'expense').forEach(t => {
+      map[t.category] = (map[t.category] || 0) + Number(t.amount);
     });
-    return Object.keys(grouped).map(key => ({
-      category: key,
-      spent: grouped[key].spent,
-      count: grouped[key].count * 50 // Scale count purely for visual parity on the chart
-    }));
+    return Object.entries(map)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6);
   }, [transactions]);
+
+  const peakExpense = Math.max(0, ...transactions.filter(t => t.type === 'expense').map(t => Number(t.amount)));
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h1 className="page-title" style={{ marginBottom: 0 }}>Dashboard Overview</h1>
+      {/* Page Header */}
+      <div className="page-header">
+        <h1 className="page-title">Dashboard</h1>
         {role === 'admin' && (
-          <span className="badge badge-income" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '0.85rem' }}>
-            <ShieldCheck size={16} /> Administrator Access Active
+          <span className="badge badge-admin">
+            <ShieldCheck size={14} /> Admin Mode
           </span>
         )}
       </div>
-      
-      {/* Admin Quick Actions Card */}
+
+      {/* Admin Card */}
       {role === 'admin' && (
-        <div className="card" style={{ marginBottom: 32, backgroundColor: 'var(--bg-color)', border: '1px dashed var(--primary-color)' }}>
-          <h3 style={{ marginBottom: 16, color: 'var(--primary-color)', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Database size={20} /> System Metrics (Admin Only)
-          </h3>
-          <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
+        <div className="admin-card">
+          <div className="admin-card-title">
+            <Database size={20} /> System Insights
+          </div>
+          <div className="admin-stats">
             <div>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Total Transactions</p>
-              <p style={{ fontSize: '1.5rem', fontWeight: 700 }}>{transactions.length}</p>
+              <div className="admin-stat-label">Total Records</div>
+              <div className="admin-stat-value">{transactions.length}</div>
             </div>
             <div>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Active Users Viewing</p>
-              <p style={{ fontSize: '1.5rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-                3 <Users size={18} color="var(--text-secondary)"/>
-              </p>
+              <div className="admin-stat-label">Active Sessions</div>
+              <div className="admin-stat-value" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                12 <Users size={18} color="var(--primary)" />
+              </div>
             </div>
             <div>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Highest Ever Expense</p>
-              <p style={{ fontSize: '1.5rem', fontWeight: 700 }}>
-                ${Math.max(0, ...transactions.filter(t => t.type === 'expense').map(t => Number(t.amount))).toLocaleString()}
-              </p>
+              <div className="admin-stat-label">Peak Expense</div>
+              <div className="admin-stat-value">${peakExpense.toLocaleString()}</div>
             </div>
           </div>
         </div>
       )}
 
-      <div className="grid-cards">
-        <div className="card">
-          <div className="card-icon" style={{ backgroundColor: 'var(--primary-hover)', color: '#fff' }}>
+      {/* Stat Cards */}
+      <div className="cards-grid">
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background: 'var(--primary-light)', color: 'var(--primary)' }}>
             <DollarSign size={24} />
           </div>
-          <div className="card-title">Total Balance</div>
-          <div className="card-value">${balance.toLocaleString()}</div>
+          <div className="stat-label">Net Balance</div>
+          <div className="stat-value">${stats.balance.toLocaleString()}</div>
+          <div className="stat-trend" style={{ color: stats.balance >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+            {stats.balance >= 0 ? '↑ In the green' : '↓ In deficit'}
+          </div>
         </div>
-        
-        <div className="card">
-          <div className="card-icon" style={{ backgroundColor: 'var(--success-bg)', color: 'var(--success-color)' }}>
+
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background: 'var(--success-bg)', color: 'var(--success)' }}>
             <TrendingUp size={24} />
           </div>
-          <div className="card-title">Total Income</div>
-          <div className="card-value">${totalIncome.toLocaleString()}</div>
+          <div className="stat-label">Total Income</div>
+          <div className="stat-value">${stats.income.toLocaleString()}</div>
+          <div className="stat-trend" style={{ color: 'var(--success)' }}>↑ Revenue earned</div>
         </div>
-        
-        <div className="card">
-          <div className="card-icon" style={{ backgroundColor: 'var(--danger-bg)', color: 'var(--danger-color)' }}>
+
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background: 'var(--danger-bg)', color: 'var(--danger)' }}>
             <TrendingDown size={24} />
           </div>
-          <div className="card-title">Total Expenses</div>
-          <div className="card-value">${totalExpense.toLocaleString()}</div>
+          <div className="stat-label">Total Expenses</div>
+          <div className="stat-value">${stats.expense.toLocaleString()}</div>
+          <div className="stat-trend" style={{ color: 'var(--danger)' }}>↓ Money spent</div>
         </div>
       </div>
 
-      <div className="charts-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-        
-        {/* Chart 1: Time-based Bar Chart */}
+      {/* Charts */}
+      <div className="charts-grid">
+
+        {/* Bar Chart */}
         <div className="chart-card">
-          <div className="chart-header">Income vs Expense (Monthly)</div>
-          <div style={{ width: '100%', height: 300 }}>
-            <ResponsiveContainer>
-              <BarChart data={barData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
-                <XAxis dataKey="name" stroke="var(--text-secondary)" />
-                <YAxis stroke="var(--text-secondary)" />
-                <Tooltip contentStyle={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)' }} />
-                <Legend />
-                <Bar dataKey="income" name="Income" fill="var(--success-color)" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="expense" name="Expense" fill="var(--danger-color)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <div className="chart-title">Revenue vs Spending</div>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={barData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+              <XAxis dataKey="name" stroke="var(--muted)" tick={{ fontSize: 11, fontFamily: 'Outfit' }} axisLine={false} tickLine={false} />
+              <YAxis stroke="var(--muted)" tick={{ fontSize: 11, fontFamily: 'Outfit' }} axisLine={false} tickLine={false} />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
+              <Bar dataKey="income" name="Income" fill="var(--success)" radius={[6, 6, 0, 0]} maxBarSize={32} />
+              <Bar dataKey="expense" name="Expense" fill="var(--danger)" radius={[6, 6, 0, 0]} maxBarSize={32} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
 
-        {/* Chart 2: Time-based Line Chart */}
+        {/* Line Chart */}
         <div className="chart-card">
-          <div className="chart-header">Balance Trend</div>
-          <div style={{ width: '100%', height: 300 }}>
-            <ResponsiveContainer>
-              <LineChart data={trendData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
-                <XAxis dataKey="name" stroke="var(--text-secondary)" />
-                <YAxis stroke="var(--text-secondary)" />
-                <Tooltip contentStyle={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)' }} />
-                <Line type="monotone" dataKey="balance" stroke="var(--primary-color)" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 8 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-        
-        {/* Chart 3: Categorical Pie Chart */}
-        <div className="chart-card">
-          <div className="chart-header">Spending Breakdown</div>
-          <div style={{ width: '100%', height: 300 }}>
-            <ResponsiveContainer>
-              <PieChart>
-                <Pie
-                  data={categoryData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {categoryData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)' }} formatter={(value) => `$${value.toLocaleString()}`} />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+          <div className="chart-title">Balance Trend</div>
+          <ResponsiveContainer width="100%" height={260}>
+            <LineChart data={trendData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+              <XAxis dataKey="name" stroke="var(--muted)" tick={{ fontSize: 11, fontFamily: 'Outfit' }} axisLine={false} tickLine={false} />
+              <YAxis stroke="var(--muted)" tick={{ fontSize: 11, fontFamily: 'Outfit' }} axisLine={false} tickLine={false} />
+              <Tooltip content={<CustomTooltip />} />
+              <Line
+                type="monotone"
+                dataKey="balance"
+                name="Balance"
+                stroke="var(--primary)"
+                strokeWidth={3}
+                dot={{ r: 4, fill: 'var(--primary)', strokeWidth: 2, stroke: 'var(--surface)' }}
+                activeDot={{ r: 7, strokeWidth: 0 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
 
-        {/* Chart 4: Simple Categorical Chart */}
+        {/* Pie Chart */}
         <div className="chart-card">
-          <div className="chart-header">Total Spent by Category</div>
-          <div style={{ width: '100%', height: 300 }}>
-            <ResponsiveContainer>
-              <BarChart layout="vertical" data={radarData} margin={{ left: 20, right: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" horizontal={true} vertical={false} />
-                <XAxis type="number" stroke="var(--text-secondary)" />
-                <YAxis dataKey="category" type="category" stroke="var(--text-secondary)" width={80} />
-                <Tooltip contentStyle={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)' }} formatter={(value) => `$${Number(value).toLocaleString()}`} />
-                <Legend />
-                <Bar name="Total Spent ($)" dataKey="spent" fill="var(--primary-color)" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <div className="chart-title">Expense Breakdown</div>
+          <ResponsiveContainer width="100%" height={260}>
+            <PieChart>
+              <Pie
+                data={pieData}
+                cx="50%"
+                cy="46%"
+                innerRadius={60}
+                outerRadius={95}
+                paddingAngle={4}
+                dataKey="value"
+              >
+                {pieData.map((_, i) => (
+                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip content={<CustomTooltip />} />
+              <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Horizontal Bar */}
+        <div className="chart-card">
+          <div className="chart-title">Top Spending Categories</div>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart
+              layout="vertical"
+              data={hBarData}
+              margin={{ top: 0, right: 16, left: 0, bottom: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+              <XAxis type="number" hide />
+              <YAxis
+                dataKey="name"
+                type="category"
+                stroke="var(--muted)"
+                tick={{ fontSize: 11, fontFamily: 'Outfit' }}
+                axisLine={false}
+                tickLine={false}
+                width={80}
+              />
+              <Tooltip content={<CustomTooltip />} />
+              <Bar dataKey="value" name="Spent" fill="var(--primary)" radius={[0, 6, 6, 0]} maxBarSize={20} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
 
       </div>
     </div>
   );
-};
-
-export default Dashboard;
+}

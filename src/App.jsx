@@ -7,12 +7,33 @@ import Insights from './components/Insights';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const openSidebar = () => setSidebarOpen(true);
+  const closeSidebar = () => setSidebarOpen(false);
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    closeSidebar();
+  };
 
   return (
     <div className="app-container">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      {/* Overlay */}
+      <div
+        className={`sidebar-overlay ${sidebarOpen ? 'visible' : ''}`}
+        onClick={closeSidebar}
+      />
+
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={handleTabChange}
+        isOpen={sidebarOpen}
+        onClose={closeSidebar}
+      />
+
       <main className="main-content">
-        <Header />
+        <Header onMenuClick={openSidebar} />
         <div className="page">
           {activeTab === 'dashboard' && <Dashboard />}
           {activeTab === 'transactions' && <Transactions />}

@@ -1,108 +1,119 @@
 import React, { useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { Lightbulb, AlertCircle, TrendingUp } from 'lucide-react';
+import { TrendingUp, AlertCircle, Lightbulb, PiggyBank, Zap } from 'lucide-react';
 
-const Insights = () => {
+export default function Insights() {
   const { transactions } = useAppContext();
 
   const insights = useMemo(() => {
-    if (transactions.length === 0) return [];
+    if (!transactions.length) return [];
 
-    const data = {
-      expenses: 0,
-      income: 0,
-      categories: {},
-      months: {}
-    };
+    let income = 0, expense = 0;
+    const categories = {};
+    const months = {};
 
     transactions.forEach(t => {
       const amt = Number(t.amount);
-      const date = new Date(t.date);
-      const monthYear = `${date.getMonth() + 1}-${date.getFullYear()}`;
+      const d = new Date(t.date);
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
 
-      if (t.type === 'expense') {
-        data.expenses += amt;
-        data.categories[t.category] = (data.categories[t.category] || 0) + amt;
-      } else {
-        data.income += amt;
+      if (t.type === 'income') income += amt;
+      else {
+        expense += amt;
+        categories[t.category] = (categories[t.category] || 0) + amt;
       }
 
-      if (!data.months[monthYear]) data.months[monthYear] = { income: 0, expense: 0 };
-      data.months[monthYear][t.type] += amt;
+      if (!months[key]) months[key] = { income: 0, expense: 0, label: d.toLocaleString('en', { month: 'long', year: 'numeric' }) };
+      months[key][t.type] += amt;
     });
 
-    const res = [];
-    
-    // Overall health
-    if (data.expenses > data.income) {
-      res.push({
-        title: "Deficit Warning",
-        desc: "Your expenses exceed your income overall. Consider reviewing your budget.",
+    const list = [];
+
+    // Savings rate or deficit
+    if (expense > income) {
+      list.push({
         icon: AlertCircle,
-        color: "var(--danger-color)",
-        bg: "var(--danger-bg)"
+        color: 'var(--danger)',
+        bg: 'var(--danger-bg)',
+        title: 'Deficit Warning',
+        desc: `You've spent $${(expense - income).toLocaleString()} more than you earned. Review your budget immediately.`,
       });
-    } else if (data.income > 0) {
-      const savingsRate = ((data.income - data.expenses) / data.income * 100).toFixed(1);
-      res.push({
-        title: "Savings Rate",
-        desc: `You are saving ${savingsRate}% of your income! Keep it up.`,
+    } else if (income > 0) {
+      const rate = (((income - expense) / income) * 100).toFixed(1);
+      list.push({
         icon: TrendingUp,
-        color: "var(--success-color)",
-        bg: "var(--success-bg)"
+        color: 'var(--success)',
+        bg: 'var(--success-bg)',
+        title: `${rate}% Savings Rate`,
+        desc: `Great discipline! You're saving ${rate}% of your income. Financial advisors recommend 20%+.`,
       });
     }
 
-    // High spend category
-    if (Object.keys(data.categories).length > 0) {
-      let maxCat = '';
-      let maxVal = 0;
-      for (const [cat, val] of Object.entries(data.categories)) {
-        if (val > maxVal) {
-          maxVal = val;
-          maxCat = cat;
-        }
-      }
-      res.push({
-        title: "Highest Expense Category",
-        desc: `You spent the most on ${maxCat} ($${maxVal.toLocaleString()}).`,
+    // Highest spend category
+    const topCat = Object.entries(categories).sort((a, b) => b[1] - a[1])[0];
+    if (topCat) {
+      list.push({
         icon: Lightbulb,
-        color: "var(--warning-color)",
-        bg: "var(--bg-color)"
+        color: 'var(--warning)',
+        bg: 'rgba(245,158,11,0.12)',
+        title: 'Top Expense Category',
+        desc: `You spent the most on ${topCat[0]} — $${topCat[1].toLocaleString()} total. Consider if this aligns with your goals.`,
       });
     }
 
-    return res;
+    // Expense ratio
+    if (income > 0) {
+      const ratio = ((expense / income) * 100).toFixed(0);
+      list.push({
+        icon: PiggyBank,
+        color: 'var(--primary)',
+        bg: 'var(--primary-light)',
+        title: `${ratio}% Expense Ratio`,
+        desc: `You're spending ${ratio}% of your income. ${ratio > 80 ? 'This is high — try to cut back.' : 'Looking healthy, keep it up!'}`,
+      });
+    }
+
+    // Most active month
+    const busiest = Object.values(months).sort((a, b) => (b.income + b.expense) - (a.income + a.expense))[0];
+    if (busiest) {
+      list.push({
+        icon: Zap,
+        color: 'var(--primary)',
+        bg: 'var(--primary-light)',
+        title: 'Most Active Month',
+        desc: `${busiest.label} had the most activity — $${busiest.income.toLocaleString()} earned and $${busiest.expense.toLocaleString()} spent.`,
+      });
+    }
+
+    return list;
   }, [transactions]);
 
   return (
     <div>
-      <h1 className="page-title">Financial Insights</h1>
-      
+      <div className="page-header">
+        <h1 className="page-title">Insights</h1>
+      </div>
+
       {insights.length === 0 ? (
-        <div style={{ color: 'var(--text-secondary)' }}>Add more data to generate insights.</div>
+        <div className="empty-state" style={{ padding: '80px 24px' }}>
+          <Lightbulb size={48} strokeWidth={1.2} style={{ opacity: 0.4 }} />
+          <span>Add transactions to generate insights</span>
+        </div>
       ) : (
-        <div style={{ display: 'grid', gap: '24px' }}>
+        <div className="insights-grid">
           {insights.map((ins, i) => {
             const Icon = ins.icon;
             return (
-              <div key={i} className="card" style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
-                <div 
-                  style={{ 
-                    backgroundColor: ins.bg, 
-                    color: ins.color, 
-                    width: 64, height: 64, 
-                    borderRadius: '50%', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center' 
-                  }}
+              <div key={i} className="insight-card">
+                <div
+                  className="insight-icon"
+                  style={{ background: ins.bg, color: ins.color }}
                 >
-                  <Icon size={32} />
+                  <Icon size={28} />
                 </div>
-                <div>
-                  <h3 style={{ fontSize: '1.25rem', marginBottom: '8px' }}>{ins.title}</h3>
-                  <p style={{ color: 'var(--text-secondary)' }}>{ins.desc}</p>
+                <div className="insight-body">
+                  <h3>{ins.title}</h3>
+                  <p>{ins.desc}</p>
                 </div>
               </div>
             );
@@ -111,6 +122,4 @@ const Insights = () => {
       )}
     </div>
   );
-};
-
-export default Insights;
+}
